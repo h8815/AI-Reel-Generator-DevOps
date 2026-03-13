@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: snapverse-config
+  namespace: snapverse
+data:
+  FLASK_ENV: "production"
+  MAX_CONTENT_LENGTH: "104857600"  # 100MB
+  MAX_FILE_SIZE: "10485760"  # 10MB
+  MAX_AUDIO_SIZE: "52428800"  # 50MB

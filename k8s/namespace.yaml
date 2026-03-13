@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: snapverse
+  labels:
+    name: snapverse
+    environment: production

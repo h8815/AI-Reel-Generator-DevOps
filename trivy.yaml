@@ -1,0 +1,58 @@
+# Trivy Configuration File
+# Scan settings
+severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+
+# Vulnerability database
+db:
+  repository: ghcr.io/aquasecurity/trivy-db
+
+# Skip files and directories
+skip-files:
+  - "**/*.md"
+  - "**/LICENSE"
+  - "**/.git/**"
+  - "**/venv/**"
+  - "**/__pycache__/**"
+  - "**/node_modules/**"
+
+skip-dirs:
+  - "venv"
+  - "user_uploads"
+  - "static/reels"
+  - "static/metadata"
+  - ".git"
+  - "__pycache__"
+
+# Scan options
+scan:
+  security-checks:
+    - vuln
+    - config
+    - secret
+  
+  # Secret scanning
+  secret:
+    config: .trivyignore
+
+# Output format
+format: table
+
+# Exit code
+exit-code: 1
+
+# Timeout
+timeout: 10m
+
+# Cache
+cache:
+  backend: fs
+  ttl: 24h
+
+# Ignore unfixed vulnerabilities
+ignore-unfixed: false
+
+# Offline mode
+offline-scan: false

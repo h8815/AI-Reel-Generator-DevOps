@@ -1,0 +1,11 @@
+# Trivy Ignore File
+# Add CVEs or security issues to ignore (with justification)
+
+# Example: Ignore specific CVE with expiration date
+# CVE-2023-12345 exp:2024-12-31
+
+# Ignore test files
+**/tests/**
+
+# Ignore development dependencies
+**/venv/**

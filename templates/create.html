@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% block title %}Create Reel - AI Reel Generator{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/create.css') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">✨ Creating Your Masterpiece...</div>
+    <div class="loading-subtext">Applying your customizations. This may take a moment.</div>
+</div>
+
+<section class="upload-section">
+    <div class="container">
+        <div class="upload-container">
+            <h1 class="upload-title">Create Your Reel</h1>
+            <p class="upload-instructions">Drag & drop multiple images or click to browse. Reorder by dragging!</p>
+
+            {% if success %}
+            <div class="message success">
+                ✅ {{ success }}
+                <br>
+                <a href="/gallery" class="gallery-btn">🎬 View Gallery</a>
+            </div>
+            {% endif %}
+
+            {% if error %}
+            <div class="message error">
+                ⚠️ {{ error }}
+            </div>
+            {% endif %}
+
+            <form action="/create" enctype="multipart/form-data" method="post" id="myDropzone"
+                onsubmit="return validateAndSubmit(event)">
+                <input name="uuid" type="hidden" value="{{myid}}">
+
+                <div style="margin-bottom: 25px;">
+                    <label class="reel-name-label" for="reelName">🏷️ Reel Name *</label>
+                    <input type="text" id="reelName" name="reel_name" class="reel-name-input"
+                        placeholder="e.g., Summer_Vacation_2024" required maxlength="50" pattern="[A-Za-z0-9_\-\s]+"
+                        title="Only letters, numbers, spaces, underscores, and hyphens allowed">
+                    <span class="info-badge">Use descriptive names for easy identification</span>
+                </div>
+
+                <h3 class="section-title">📸 Upload Images</h3>
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-icon">🖼️</div>
+                    <div class="drop-zone-text">Drag & Drop Images Here</div>
+                    <div class="drop-zone-subtext">or</div>
+                    <button type="button" class="browse-btn" onclick="document.getElementById('imageInput').click()">
+                        📁 Browse Files
+                    </button>
+                    <input type="file" id="imageInput" accept=".jpg,.jpeg,.png" multiple>
+                    <div class="file-size-info" style="margin-top: 15px;">Max 10MB per image • JPG, JPEG, PNG formats
+                    </div>
+                </div>
+
+                <div class="image-preview-wrapper" id="imagePreviewWrapper">
+                    <div id="imagePreviewContainer" class="image-preview-container"></div>
+                </div>
+
+                <div id="imageCountBadge" style="text-align: center; display: none;">
+                    <span class="image-count-badge">
+                        <span id="imageCount">0</span> image(s) selected
+                    </span>
+                </div>
+
+                <h3 class="section-title">🎵 Upload Audio</h3>
+                <div class="text-input-container">
+                    <input class="file-input" id="audioInput" name="audio" type="file" accept=".mp3,audio/mpeg"
+                        required />
+                    <div class="file-size-info">Max 50MB • MP3 format only</div>
+                </div>
+
+                <h3 class="section-title">🎨 Customization Options</h3>
+                <div class="customization-grid">
+                    <div class="custom-option">
+                        <div class="option-icon">⏱️</div>
+                        <label class="custom-label" for="imageDuration">Image Duration</label>
+                        <input type="number" id="imageDuration" name="image_duration" class="custom-input" value="1"
+                            min="0.5" max="10" step="0.5" placeholder="Seconds per image">
+                        <div class="file-size-info">0.5 to 10 seconds per image</div>
+                    </div>
+
+                    <div class="custom-option">
+                        <div class="option-icon">📐</div>
+                        <label class="custom-label" for="aspectRatio">Aspect Ratio</label>
+                        <select id="aspectRatio" name="aspect_ratio" class="custom-select"
+                            style="background-color: rgb(17, 29, 51);">
+                            <option value="9:16">9:16 (Instagram Reels)</option>
+                            <option value="16:9">16:9 (YouTube)</option>
+                            <option value="1:1">1:1 (Square)</option>
+                        </select>
+                        <div class="file-size-info">Choose your platform</div>
+                    </div>
+
+                    <div class="custom-option">
+                        <div class="option-icon">✨</div>
+                        <label class="custom-label" for="filterEffect">Video Filter</label>
+                        <select id="filterEffect" name="filter_effect" class="custom-select"
+                            style="background-color: rgb(17, 29, 51);">
+                            <optgroup label="🎨 Basic Filters">
+                                <option value="none">None (Default)</option>
+                                <option value="grayscale">Grayscale / Black & White</option>
+                                <option value="sepia">Sepia / Vintage Brown</option>
+                            </optgroup>
+
+                            <optgroup label="🌈 Color Adjustments">
+                                <option value="vibrant">Vibrant / Saturated Colors</option>
+                                <option value="warm">Warm Tone / Orange Tint</option>
+                                <option value="cool">Cool Tone / Blue Tint</option>
+                                <option value="vintage">Vintage / Retro</option>
+                            </optgroup>
+
+                            <optgroup label="🎬 Dramatic Filters">
+                                <option value="noir">Film Noir / High Contrast B&W</option>
+                                <option value="dramatic">Dramatic / Dark Mood</option>
+                                <option value="cinematic">Cinematic / Movie Style</option>
+                            </optgroup>
+
+                            <optgroup label="☀️ Bright & Light">
+                                <option value="bright">Bright / Enhanced</option>
+                                <option value="soft">Soft / Dreamy</option>
+                                <option value="dream">Dream / Ethereal</option>
+                            </optgroup>
+
+                            <optgroup label="📱 Instagram Style">
+                                <option value="nashville">Nashville / Warm Pink</option>
+                                <option value="lofi">Lo-Fi / High Contrast</option>
+                                <option value="xpro">X-Pro II / Cross Process</option>
+                            </optgroup>
+
+                            <optgroup label="🎭 Special Effects">
+                                <option value="fade">Faded / Washed Out</option>
+                                <option value="sharp">Sharp / Enhanced Details</option>
+                                <option value="vignette">Vignette / Dark Edges</option>
+                                <option value="blur_edges">Blur Edges / Focus Center</option>
+                            </optgroup>
+                        </select>
+                        <div class="file-size-info">Apply a professional visual filter to your reels</div>
+                    </div>
+                </div>
+
+                <div class="custom-option" style="margin-top: 20px;">
+                    <div class="option-icon">💬</div>
+                    <label class="custom-label" for="textOverlay">Text Overlay (Optional)</label>
+                    <input type="text" id="textOverlay" name="text_overlay" class="custom-input"
+                        placeholder="Add text to appear on your reel" maxlength="100">
+                    <div class="file-size-info">Add a caption or title (max 100 characters)</div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    🚀 Create Amazing Reel
+                </button>
+            </form>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let selectedFiles = [];
+    let draggedElement = null;
+
+    const dropZone = document.getElementById('dropZone');
+    const imageInput = document.getElementById('imageInput');
+    const imagePreviewWrapper = document.getElementById('imagePreviewWrapper');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    const imageCountBadge = document.getElementById('imageCountBadge');
+    const imageCountSpan = document.getElementById('imageCount');
+
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // Highlight drop zone when dragging over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.add('dragover');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.remove('dragover');
+        }, false);
+    });
+
+    // Handle dropped files
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+    }, false);
+
+    // Handle file input change
+    imageInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+    });
+
+    function handleFiles(files) {
+        const newFiles = [...files].filter(file => {
+            // Check if file is image
+            if (!file.type.match('image/jpeg') && !file.type.match('image/png') && !file.type.match('image/jpg')) {
+                alert(`${file.name} is not a valid image file (JPG, JPEG, PNG only)`);
+                return false;
+            }
+            // Check file size (10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                alert(`${file.name} is too large. Maximum size is 10MB`);
+                return false;
+            }
+            return true;
+        });
+
+        selectedFiles = [...selectedFiles, ...newFiles];
+        updateImagePreviews();
+    }
+
+    function updateImagePreviews() {
+        imagePreviewContainer.innerHTML = '';
+
+        if (selectedFiles.length === 0) {
+            imagePreviewWrapper.style.display = 'none';
+            imageCountBadge.style.display = 'none';
+            return;
+        }
+
+        imagePreviewWrapper.style.display = 'flex';
+        imageCountBadge.style.display = 'block';
+        imageCountSpan.textContent = selectedFiles.length;
+
+        selectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'image-preview';
+                previewDiv.draggable = true;
+                previewDiv.dataset.index = index;
+
+                previewDiv.innerHTML = `
+                    <div class="image-order-badge">${index + 1}</div>
+                    <div class="drag-handle">⋮⋮</div>
+                    <img src="${e.target.result}" alt="Preview ${index + 1}">
+                    <div class="image-preview-overlay">
+                        <button type="button" class="remove-image-btn" onclick="removeImage(${index})">×</button>
+                    </div>
+                `;
+
+                // Add drag events for reordering
+                previewDiv.addEventListener('dragstart', handleDragStart);
+                previewDiv.addEventListener('dragend', handleDragEnd);
+                previewDiv.addEventListener('dragover', handleDragOver);
+                previewDiv.addEventListener('drop', handleDrop);
+
+                imagePreviewContainer.appendChild(previewDiv);
+            };
+
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function removeImage(index) {
+        selectedFiles.splice(index, 1);
+        updateImagePreviews();
+    }
+
+    // Drag and drop for reordering
+    function handleDragStart(e) {
+        draggedElement = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', this.innerHTML);
+    }
+
+    function handleDragEnd(e) {
+        this.classList.remove('dragging');
+        draggedElement = null;
+    }
+
+    function handleDragOver(e) {
+        if (e.preventDefault) {
+            e.preventDefault();
+        }
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+
+    function handleDrop(e) {
+        if (e.stopPropagation) {
+            e.stopPropagation();
+        }
+
+        if (draggedElement !== this) {
+            const draggedIndex = parseInt(draggedElement.dataset.index);
+            const targetIndex = parseInt(this.dataset.index);
+
+            // Reorder the files array
+            const [removed] = selectedFiles.splice(draggedIndex, 1);
+            selectedFiles.splice(targetIndex, 0, removed);
+
+            updateImagePreviews();
+        }
+
+        return false;
+    }
+
+    function validateAndSubmit(event) {
+        const reelName = document.getElementById('reelName').value.trim();
+        const audioInput = document.getElementById('audioInput').files[0];
+        const imageDuration = parseFloat(document.getElementById('imageDuration').value);
+
+        if (!reelName) {
+            alert('Please enter a name for your reel');
+            return false;
+        }
+
+        if (!audioInput) {
+            alert('Please select an audio file');
+            return false;
+        }
+
+        if (audioInput.size > 50 * 1024 * 1024) {
+            alert('Audio file is too large. Maximum size is 50MB.');
+            return false;
+        }
+
+        if (imageDuration < 0.5 || imageDuration > 10) {
+            alert('Image duration must be between 0.5 and 10 seconds.');
+            return false;
+        }
+
+        if (selectedFiles.length === 0) {
+            alert('Please select at least one image');
+            return false;
+        }
+
+        // Create FormData and append files in the correct order
+        const formData = new FormData(event.target);
+
+        // Remove any existing file inputs from FormData
+        for (let pair of formData.entries()) {
+            if (pair[0].startsWith('file')) {
+                formData.delete(pair[0]);
+            }
+        }
+
+        // Add files in the correct order
+        selectedFiles.forEach((file, index) => {
+            formData.append(`file${index + 1}`, file);
+        });
+
+        // Submit the form with AJAX
+        document.getElementById('loadingOverlay').classList.add('active');
+        document.getElementById('submitBtn').disabled = true;
+
+        fetch('/create', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.text())
+            .then(html => {
+                document.open();
+                document.write(html);
+                document.close();
+            })
+            .catch(error => {
+                alert('Error creating reel: ' + error.message);
+                document.getElementById('loadingOverlay').classList.remove('active');
+                document.getElementById('submitBtn').disabled = false;
+            });
+
+        return false;
+    }
+
+    window.addEventListener('DOMContentLoaded', function () {
+        const message = document.querySelector('.message');
+        if (message) {
+            message.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+</script>
+{% endblock %}

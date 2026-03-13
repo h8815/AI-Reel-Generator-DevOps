@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}About - AI Reel Generator{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/about.css') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<section class="about-section">
+    <div class="container">
+        <div class="about-container">
+            <h1 class="about-title"> About AI Reel Generator</h1>
+
+            <div class="about-content">
+                <p>
+                    Welcome to <strong>AI Reel Generator</strong> - your ultimate tool for creating stunning video reels
+                    from your photos and audio. Whether you're a content creator, marketer, or just someone who loves
+                    sharing memories, our platform makes it incredibly easy to transform your images into engaging video
+                    content.
+                </p>
+
+                <h2>🎯 Our Mission</h2>
+                <p>
+                    We believe that everyone should be able to create professional-looking video content without needing
+                    expensive software or technical expertise. Our mission is to democratize video creation and make it
+                    accessible to everyone, from beginners to professionals.
+                </p>
+
+                <h2>✨ Key Features</h2>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🖼️</div>
+                        <div class="feature-title">Drag & Drop</div>
+                        <div class="feature-desc">Easily upload multiple images with drag and drop functionality</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🎨</div>
+                        <div class="feature-title">Customization</div>
+                        <div class="feature-desc">Adjust duration, transitions, aspect ratios, and add text overlays
+                        </div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <div class="feature-title">Fast Processing</div>
+                        <div class="feature-desc">Quick video rendering with high-quality output</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📱</div>
+                        <div class="feature-title">Platform Ready</div>
+                        <div class="feature-desc">Create reels for Instagram, YouTube, and more</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🎵</div>
+                        <div class="feature-title">Audio Sync</div>
+                        <div class="feature-desc">Perfect synchronization with your favorite music</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">💾</div>
+                        <div class="feature-title">Gallery</div>
+                        <div class="feature-desc">Manage all your created reels in one place</div>
+                    </div>
+                </div>
+
+                <h2>🚀 How It Works</h2>
+                <p>
+                    1. <strong>Upload</strong> - Drag and drop your images or browse to select multiple photos<br>
+                    2. <strong>Customize</strong> - Choose your settings: duration, transitions, aspect ratio, and
+                    text<br>
+                    3. <strong>Add Music</strong> - Upload your favorite MP3 audio track<br>
+                    4. <strong>Create</strong> - Let our system generate your professional reel<br>
+                    5. <strong>Download & Share</strong> - Get your video and share it on social media
+                </p>
+
+                <h2>💡 Why Choose Us?</h2>
+                <p>
+                    <strong>No Watermarks:</strong> Your content is yours. We don't add any branding to your videos.<br>
+                    <strong>High Quality:</strong> All videos are rendered in high definition with professional
+                    encoding.<br>
+                    <strong>Easy to Use:</strong> Intuitive interface designed for everyone, regardless of technical
+                    skill.<br>
+                    <strong>Fast & Reliable:</strong> Quick processing times with stable, consistent results.<br>
+                    <strong>Free to Use:</strong> Create unlimited reels without any cost.
+                </p>
+
+                <div class="text-center">
+                    <a href="/create" class="cta-button">🎬 Start Creating Now</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # Main Application
+  snapverse-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: snapverse-ai
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./static:/app/static
+      - ./user_uploads:/app/user_uploads
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    networks:
+      - snapverse-network
+    restart: unless-stopped
+
+  # SonarQube for Code Quality
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    networks:
+      - snapverse-network
+    restart: unless-stopped
+
+  # PostgreSQL for SonarQube
+  sonarqube-db:
+    image: postgres:15-alpine
+    container_name: sonarqube-db
+    environment:
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar
+      - POSTGRES_DB=sonarqube
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+    networks:
+      - snapverse-network
+    restart: unless-stopped
+
+  # Trivy Server (Optional - for faster scans)
+  trivy:
+    image: aquasec/trivy:latest
+    container_name: trivy-server
+    command: server --listen 0.0.0.0:8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - trivy_cache:/root/.cache/trivy
+    networks:
+      - snapverse-network
+    restart: unless-stopped
+
+networks:
+  snapverse-network:
+    driver: bridge
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  postgresql_data:
+  trivy_cache:

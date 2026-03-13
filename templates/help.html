@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Help & FAQ - AI Reel Generator{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/help.css') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<section class="help-section">
+    <div class="container">
+        <div class="help-container">
+            <h1 class="help-title">? Help & FAQ</h1>
+
+            <h2 class="section-title">🚀 Getting Started</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">📸 How do I upload images?</div>
+                <div class="faq-answer">
+                    You can upload images in two ways:
+                    <ul>
+                        <li><strong>Drag & Drop:</strong> Simply drag your images from your computer and drop them into
+                            the upload zone</li>
+                        <li><strong>Browse:</strong> Click the "Browse Files" button and select multiple images at once
+                        </li>
+                    </ul>
+                    You can upload as many images as you want, and they will be processed in the order you arrange them.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">🔄 How do I reorder images?</div>
+                <div class="faq-answer">
+                    After uploading your images, you'll see them displayed as thumbnails with numbers. Simply drag any
+                    image
+                    to a new position to change the order. The numbers will automatically update to show the new
+                    sequence.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">🎵 What audio formats are supported?</div>
+                <div class="faq-answer">
+                    Currently, we only support <code>MP3</code> audio files. The maximum file size is
+                    <strong>50MB</strong>.
+                    Make sure your audio file is in MP3 format before uploading.
+                </div>
+            </div>
+
+            <h2 class="section-title">🎨 Customization Options</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">⏱️ How do I adjust image duration?</div>
+                <div class="faq-answer">
+                    In the customization section, you can set how long each image appears in your reel. The duration can
+                    be
+                    set between <strong>0.5 seconds</strong> and <strong>10 seconds</strong> per image. The default is 1
+                    second.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">✨ What transitions are available?</div>
+                <div class="faq-answer">
+                    We offer three transition options:
+                    <ul>
+                        <li><strong>None:</strong> Direct cut between images (default)</li>
+                        <li><strong>Fade:</strong> Smooth fade in/out effect between images</li>
+                        <li><strong>Zoom:</strong> Ken Burns style zoom effect on images</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">📐 What aspect ratios can I use?</div>
+                <div class="faq-answer">
+                    Choose from three aspect ratios based on your platform:
+                    <ul>
+                        <li><strong>9:16 (Vertical):</strong> Perfect for Instagram Reels, TikTok, YouTube Shorts</li>
+                        <li><strong>16:9 (Horizontal):</strong> Ideal for YouTube videos, Facebook</li>
+                        <li><strong>1:1 (Square):</strong> Great for Instagram posts, Twitter</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">💬 Can I add text to my reel?</div>
+                <div class="faq-answer">
+                    Yes! You can add text overlay that will appear on your reel. The text will be displayed at the
+                    bottom
+                    center of the video with a semi-transparent background for better readability. Maximum length is 100
+                    characters.
+                </div>
+            </div>
+
+            <h2 class="section-title">⚙️ Technical Information</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">📏 What are the file size limits?</div>
+                <div class="faq-answer">
+                    <ul>
+                        <li><strong>Images:</strong> Maximum 10MB per image</li>
+                        <li><strong>Audio:</strong> Maximum 50MB per MP3 file</li>
+                        <li><strong>Supported formats:</strong> JPG, JPEG, PNG for images</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">🎬 What video quality will I get?</div>
+                <div class="faq-answer">
+                    All reels are rendered in high definition:
+                    <ul>
+                        <li><strong>9:16:</strong> 1080x1920 pixels (Full HD vertical)</li>
+                        <li><strong>16:9:</strong> 1920x1080 pixels (Full HD horizontal)</li>
+                        <li><strong>1:1:</strong> 1080x1080 pixels (Full HD square)</li>
+                        <li><strong>Frame rate:</strong> 30 FPS</li>
+                        <li><strong>Video codec:</strong> H.264 (MP4)</li>
+                        <li><strong>Audio codec:</strong> AAC</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">⏳ How long does it take to create a reel?</div>
+                <div class="faq-answer">
+                    Processing time depends on:
+                    <ul>
+                        <li>Number of images (more images = longer processing)</li>
+                        <li>Image duration settings</li>
+                        <li>Audio length</li>
+                        <li>Selected transitions and effects</li>
+                    </ul>
+                    Typically, a reel with 10 images takes 30-60 seconds to process.
+                </div>
+            </div>
+
+            <h2 class="section-title">🗂️ Managing Your Reels</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">💾 How do I download my reel?</div>
+                <div class="faq-answer">
+                    After your reel is created, go to the Gallery page. Each reel has a <strong>"Download"</strong>
+                    button.
+                    Click it to download the MP4 file to your device.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">🗑️ Can I delete reels I don't want?</div>
+                <div class="faq-answer">
+                    Yes! In the Gallery, each reel has a <strong>"Delete"</strong> button. Click it and confirm to
+                    permanently
+                    remove the reel from the server. This action cannot be undone.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">📊 What information is stored about my reels?</div>
+                <div class="faq-answer">
+                    For each reel, we store:
+                    <ul>
+                        <li>Reel name and file size</li>
+                        <li>Number of images used</li>
+                        <li>Creation date and time</li>
+                        <li>Customization settings (duration, transition, aspect ratio)</li>
+                    </ul>
+                    This information is displayed in the Gallery to help you manage your reels.
+                </div>
+            </div>
+
+            <h2 class="section-title">🐛 Troubleshooting</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">⚠️ Why is my reel not showing images?</div>
+                <div class="faq-answer">
+                    If your reel plays audio but shows no images, check:
+                    <ul>
+                        <li>Make sure you uploaded valid image files (JPG, JPEG, or PNG)</li>
+                        <li>Verify that images are not corrupted</li>
+                        <li>Try creating a new reel with different images</li>
+                        <li>Check that images are under the 10MB size limit</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">❌ What if I get an error during creation?</div>
+                <div class="faq-answer">
+                    Common solutions:
+                    <ul>
+                        <li>Refresh the page and try again</li>
+                        <li>Make sure all files are within size limits</li>
+                        <li>Check that your reel name contains only letters, numbers, spaces, underscores, and hyphens
+                        </li>
+                        <li>Verify that FFmpeg is properly installed on the server</li>
+                        <li>Try with fewer images to test</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="tip-box">
+                <strong>💡 Pro Tip:</strong> For best results, use high-quality images with similar dimensions and
+                orientations.
+                This ensures smooth transitions and consistent video quality. Also, match your audio length with your
+                expected
+                video duration (number of images × duration per image).
+            </div>
+
+            <div class="contact-box">
+                <h3>Still Need Help?</h3>
+                <p>If you have questions that aren't answered here, feel free to reach out!</p>
+                <p>Create an issue on our GitHub repository or contact us through the website.</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
