@@ -8,9 +8,60 @@
 <link
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
+<style>
+    .video-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+    }
+    
+    .video-background video {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        min-width: 100%;
+        min-height: 100%;
+        width: auto;
+        height: auto;
+        transform: translate(-50%, -50%);
+        object-fit: cover;
+    }
+    
+    .video-background::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+    }
+    
+    .hero-section {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .features-section {
+        background: rgba(255, 255, 255, 0.95);
+        position: relative;
+        z-index: 1;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
+<!-- Video Background -->
+<div class="video-background">
+    <video autoplay muted loop playsinline>
+        <source src="{{ url_for('static', filename='background-video.mp4') }}" type="video/mp4">
+    </video>
+</div>
+
 <!-- Hero Section -->
 <section class="hero-section">
     <div class="hero-content">
@@ -20,12 +71,21 @@
             No editing skills required!
         </p>
         <div class="cta-buttons">
+            {% if session.get('user_id') %}
             <a href="/create" class="cta-btn cta-btn-primary">
                 ✨ Start Creating Free
             </a>
             <a href="/gallery" class="cta-btn cta-btn-secondary">
                 🎬 View Gallery
             </a>
+            {% else %}
+            <a href="/register" class="cta-btn cta-btn-primary">
+                ✨ Get Started Free
+            </a>
+            <a href="/login" class="cta-btn cta-btn-secondary">
+                🔐 Login
+            </a>
+            {% endif %}
         </div>
     </div>
 </section>
@@ -100,9 +160,15 @@
             Join thousands of creators making amazing content every day
         </p>
         <div class="cta-buttons">
+            {% if session.get('user_id') %}
             <a href="/create" class="cta-btn cta-btn-primary">
                 Get Started Now
             </a>
+            {% else %}
+            <a href="/register" class="cta-btn cta-btn-primary">
+                Get Started Now
+            </a>
+            {% endif %}
             <a href="/help" class="cta-btn cta-btn-secondary">
                 Learn More
             </a>

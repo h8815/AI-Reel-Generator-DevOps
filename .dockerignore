@@ -1,0 +1,18 @@
+# Ignore the virtual environment directory
+venv/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore the .git directory and other Git-related files
+.git/
+.gitignore
+
+# Ignore any specific system files
+.DS_Store
+
+# miscellaneous
+user_uploads/
+create-demo-reel/
+README.md

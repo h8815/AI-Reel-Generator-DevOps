@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 import uuid
 from werkzeug.utils import secure_filename
 import os
 import subprocess
 import json
 from datetime import datetime
+from auth import init_db, create_user, verify_user, login_required, get_user_folder, get_user_reels_folder, get_user_metadata_folder
 
 UPLOAD_FOLDER = "user_uploads"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
@@ -14,6 +15,9 @@ MAX_AUDIO_SIZE = 50 * 1024 * 1024  # 50MB for audio
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100MB total
+
+# Use environment variable for secret key in production
+app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24)
 
 def check_ffmpeg():
     """Check if FFmpeg is installed"""
@@ -29,7 +33,68 @@ def home():
     return render_template("index.html")
 
 
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if not username or not email or not password:
+            flash("All fields are required.", "error")
+            return render_template("register.html")
+
+        if len(username) < 3:
+            flash("Username must be at least 3 characters long.", "error")
+            return render_template("register.html")
+
+        if len(password) < 6:
+            flash("Password must be at least 6 characters long.", "error")
+            return render_template("register.html")
+
+        if password != confirm_password:
+            flash("Passwords do not match.", "error")
+            return render_template("register.html")
+
+        if create_user(username, email, password):
+            flash("Registration successful! Please login.", "success")
+            return redirect(url_for("login"))
+        else:
+            flash("Username or email already exists.", "error")
+            return render_template("register.html")
+
+    return render_template("register.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+
+        user = verify_user(username, password)
+        if user:
+            session["user_id"] = user[0]
+            session["username"] = user[1]
+            flash(f"Welcome back, {user[1]}!", "success")
+            return redirect(url_for("create"))
+        else:
+            flash("Invalid username or password.", "error")
+            return render_template("login.html")
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been logged out successfully.", "success")
+    return redirect(url_for("home"))
+
+
 @app.route("/create", methods=["GET", "POST"])
+@login_required
 def create():
     myid = uuid.uuid1()
     if request.method == "POST":
@@ -85,7 +150,13 @@ def create():
                 error="FFmpeg is not installed. Please install FFmpeg to create reels.",
             )
 
-        target_folder = os.path.join(app.config["UPLOAD_FOLDER"], str(rec_id))
+        # Create user-specific folder
+        user_id = session.get("user_id")
+        user_base_folder = get_user_folder(user_id)
+        if not os.path.exists(user_base_folder):
+            os.makedirs(user_base_folder, exist_ok=True)
+
+        target_folder = os.path.join(user_base_folder, str(rec_id))
         if not os.path.exists(target_folder):
             os.makedirs(target_folder, exist_ok=True)
 
@@ -181,18 +252,18 @@ def create():
                 f.write(f"aspect_ratio={aspect_ratio}\n")
                 f.write(f"filter_effect={filter_effect}\n")
 
-            # Ensure reels directory exists
-            reels_dir = os.path.join("static", "reels")
+            # Ensure user-specific reels directory exists
+            reels_dir = get_user_reels_folder(user_id)
             if not os.path.exists(reels_dir):
                 os.makedirs(reels_dir, exist_ok=True)
 
-            # Create metadata file for gallery
-            metadata_dir = os.path.join("static", "metadata")
+            # Create user-specific metadata directory
+            metadata_dir = get_user_metadata_folder(user_id)
             if not os.path.exists(metadata_dir):
                 os.makedirs(metadata_dir, exist_ok=True)
 
             # Create reel
-            if has_required_assets(str(rec_id)):
+            if has_required_assets(str(rec_id), user_id):
                 try:
                     create_reel(
                         str(rec_id),
@@ -200,6 +271,7 @@ def create():
                         text_overlay,
                         aspect_ratio,
                         filter_effect,
+                        user_id,
                     )
 
                     # Save metadata
@@ -247,9 +319,11 @@ def create():
 
 
 @app.route("/gallery")
+@login_required
 def gallery():
-    reels_dir = os.path.join("static", "reels")
-    metadata_dir = os.path.join("static", "metadata")
+    user_id = session.get("user_id")
+    reels_dir = get_user_reels_folder(user_id)
+    metadata_dir = get_user_metadata_folder(user_id)
 
     if not os.path.exists(reels_dir):
         os.makedirs(reels_dir, exist_ok=True)
@@ -290,12 +364,13 @@ def gallery():
 
 
 @app.route("/delete/<reel_name>", methods=["POST"])
+@login_required
 def delete_reel(reel_name):
     try:
-        reel_path = os.path.join("static", "reels", secure_filename(reel_name))
+        user_id = session.get("user_id")
+        reel_path = os.path.join(get_user_reels_folder(user_id), secure_filename(reel_name))
         metadata_path = os.path.join(
-            "static",
-            "metadata",
+            get_user_metadata_folder(user_id),
             f"{os.path.splitext(secure_filename(reel_name))[0]}.json",
         )
 
@@ -320,8 +395,8 @@ def help():
     return render_template("help.html")
 
 
-def has_required_assets(folder: str) -> bool:
-    base = os.path.join(app.config["UPLOAD_FOLDER"], folder)
+def has_required_assets(folder: str, user_id: int) -> bool:
+    base = os.path.join(get_user_folder(user_id), folder)
     audio_path = os.path.join(base, "audio.mp3")
     input_path = os.path.join(base, "input.txt")
 
@@ -382,11 +457,11 @@ def get_filter_string(filter_effect):
 
 
 def create_reel(
-    folder, reel_name, text_overlay="", aspect_ratio="9:16", filter_effect="none"
+    folder, reel_name, text_overlay="", aspect_ratio="9:16", filter_effect="none", user_id=None
 ):
     # Get the absolute path to the output file
     original_dir = os.getcwd()
-    output_dir = os.path.join(original_dir, "static", "reels")
+    output_dir = os.path.join(original_dir, get_user_reels_folder(user_id))
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"{reel_name}.mp4")
 
@@ -446,7 +521,7 @@ def create_reel(
     ]
 
     # Change working directory to process files correctly
-    target_dir = os.path.join(original_dir, "user_uploads", folder)
+    target_dir = os.path.join(original_dir, get_user_folder(user_id), folder)
 
     try:
         os.chdir(target_dir)
@@ -466,6 +541,9 @@ def create_reel(
         os.chdir(original_dir)
 
 if __name__ == "__main__":
+    # Initialize database
+    init_db()
+    
     # Create necessary directories
     os.makedirs("user_uploads", exist_ok=True)
     os.makedirs("static/reels", exist_ok=True)

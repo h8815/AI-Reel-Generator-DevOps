@@ -38,7 +38,7 @@
         <div class="gallery-item" id="reel-{{ loop.index }}">
             <div class="reel-card">
                 <video controls preload="metadata">
-                    <source src="{{ url_for('static', filename='reels/' ~ reel.filename) }}" type="video/mp4">
+                    <source src="{{ url_for('static', filename='reels/' ~ session.get('user_id')|string ~ '/' ~ reel.filename) }}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
                 <div class="reel-info">
@@ -80,7 +80,7 @@
                 {% endif %}
 
                 <div class="reel-actions">
-                    <a href="{{ url_for('static', filename='reels/' ~ reel.filename) }}" download="{{ reel.filename }}"
+                    <a href="{{ url_for('static', filename='reels/' ~ session.get('user_id')|string ~ '/' ~ reel.filename) }}" download="{{ reel.filename }}"
                         class="action-btn download-btn">
                         📥 Download
                     </a>

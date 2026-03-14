@@ -1,58 +1,27 @@
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Ignore Python cache files
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache/
-*.egg-info/
-.coverage
-htmlcov/
+*.py[cod]
+*$py.class
 
-# User uploads and generated files
+# Virtual environment
+venv/
+env/
+ENV/
+
+# User uploads and generated content
 user_uploads/
-static/reels/*.mp4
-static/metadata/*.json
+static/reels/
+static/metadata/
 
-# Terraform
-terraform/.terraform/
-terraform/*.tfstate
-terraform/*.tfstate.*
-terraform/.terraform.lock.hcl
-terraform/terraform.tfvars
-terraform/crash.log
-terraform/override.tf
-terraform/override.tf.json
-
-# Kubernetes secrets
-k8s/*-secret.yaml
-k8s/secrets/
-
-# Docker
-.dockerignore
-
-# SonarQube
-.scannerwork/
-.sonar/
-
-# Trivy
-trivy-*.sarif
-*.sarif
+# Database
+*.db
+users.db
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
 # OS
 .DS_Store
@@ -60,12 +29,11 @@ Thumbs.db
 
 # Logs
 *.log
-logs/
 
-# Temporary files
-*.tmp
-*.temp
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Backup files
-*.bak
-*.backup
+# Docker
+*.pid
