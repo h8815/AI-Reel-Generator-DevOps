@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  # Main Application with Gunicorn
+  snapverse-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: snapverse-ai-prod
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - static_volume:/app/static
+      - uploads_volume:/app/user_uploads
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=main.py
+      # Generate a secure secret key or use environment variable
+      - SECRET_KEY=${SECRET_KEY:-change-me-to-secure-random-key}
+      - GUNICORN_WORKERS=4
+      - GUNICORN_THREADS=2
+      - GUNICORN_WORKER_CLASS=sync
+      - GUNICORN_MAX_REQUESTS=1000
+      - GUNICORN_MAX_REQUESTS_JITTER=50
+    networks:
+      - snapverse-prod-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "com.example.description=Snapverse AI Production App"
+
+networks:
+  snapverse-prod-network:
+    driver: bridge
+
+volumes:
+  static_volume:
+    driver: local
+  uploads_volume:
+    driver: local
