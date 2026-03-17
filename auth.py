@@ -1,11 +1,9 @@
 from flask import session, redirect, url_for, flash
 from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
-import hashlib
 import os
 import threading
-
-import sys
 
 # Use persistent volume path in production (Docker), local file in dev
 _db_dir = '/app/db' if os.path.isdir('/app/db') else '.'
@@ -40,8 +38,8 @@ def init_db():
             conn.close()
 
 def hash_password(password):
-    """Hash password using SHA-256"""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Hash password using werkzeug (scrypt/pbkdf2 with salt)"""
+    return generate_password_hash(password)
 
 def create_user(username, email, password):
     """Create a new user"""
@@ -65,11 +63,12 @@ def verify_user(username, password):
         conn = get_db_connection()
         try:
             cursor = conn.cursor()
-            hashed_pw = hash_password(password)
-            cursor.execute('SELECT id, username FROM users WHERE username = ? AND password = ?',
-                          (username, hashed_pw))
+            cursor.execute('SELECT id, username, password FROM users WHERE username = ?',
+                          (username,))
             user = cursor.fetchone()
-            return user
+            if user and check_password_hash(user['password'], password):
+                return (user['id'], user['username'])
+            return None
         finally:
             conn.close()
 

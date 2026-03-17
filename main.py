@@ -16,15 +16,25 @@ app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100MB total
 
-# Use environment variable for secret key in production
-app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24)
+import logging
 
-# Initialize database and required directories at startup
-# This must be at module level so it runs under Gunicorn (not just `python main.py`)
-init_db()
+# Use environment variable for secret key in production
+_secret_key = os.environ.get('SECRET_KEY')
+if not _secret_key:
+    logging.warning(
+        "SECRET_KEY environment variable is not set. "
+        "Using a random key — all sessions will be invalidated on restart. "
+        "Set SECRET_KEY in your environment for production!"
+    )
+app.secret_key = _secret_key or os.urandom(24)
+
+# Create required directories FIRST so the /app/db volume dir exists before init_db()
 os.makedirs("user_uploads", exist_ok=True)
 os.makedirs("static/reels", exist_ok=True)
 os.makedirs("static/metadata", exist_ok=True)
+
+# Initialize database (module-level so it runs under Gunicorn, not just `python main.py`)
+init_db()
 
 def check_ffmpeg():
     """Check if FFmpeg is installed"""
@@ -466,10 +476,14 @@ def get_filter_string(filter_effect):
 def create_reel(
     folder, reel_name, text_overlay="", aspect_ratio="9:16", filter_effect="none", user_id=None
 ):
-    # Get the absolute path to the output file
-    original_dir = os.getcwd()
-    output_dir = os.path.join(original_dir, get_user_reels_folder(user_id))
+    # Use absolute paths throughout — avoids os.chdir() which is unsafe in multi-worker Gunicorn
+    base_dir = os.path.abspath(os.getcwd())
+    target_dir = os.path.join(base_dir, get_user_folder(user_id), folder)
+    output_dir = os.path.join(base_dir, get_user_reels_folder(user_id))
     os.makedirs(output_dir, exist_ok=True)
+
+    input_txt_path = os.path.join(target_dir, "input.txt")
+    audio_path = os.path.join(target_dir, "audio.mp3")
     output_path = os.path.join(output_dir, f"{reel_name}.mp4")
 
     # Set dimensions based on aspect ratio
@@ -501,51 +515,40 @@ def create_reel(
 
     vf_string = ",".join(vf_parts)
 
-    # Build FFmpeg command
+    # Build FFmpeg command using absolute paths — no os.chdir() needed
     command = [
         "ffmpeg",
         "-y",
-        "-f",
-        "concat",
-        "-safe",
-        "0",
-        "-i",
-        "input.txt",
-        "-i",
-        "audio.mp3",
-        "-vf",
-        vf_string,
-        "-c:v",
-        "libx264",
-        "-c:a",
-        "aac",
+        "-f", "concat",
+        "-safe", "0",
+        "-i", input_txt_path,
+        "-i", audio_path,
+        "-vf", vf_string,
+        "-c:v", "libx264",
+        "-c:a", "aac",
         "-shortest",
-        "-r",
-        "30",
-        "-pix_fmt",
-        "yuv420p",
+        "-r", "30",
+        "-pix_fmt", "yuv420p",
         output_path,
     ]
 
-    # Change working directory to process files correctly
-    target_dir = os.path.join(original_dir, get_user_folder(user_id), folder)
+    print(f"Running FFmpeg command: {' '.join(command)}")
 
-    try:
-        os.chdir(target_dir)
-        print(f"Running FFmpeg command: {' '.join(command)}")
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=target_dir,  # set cwd so concat file relative paths still resolve correctly
+    )
 
-        result = subprocess.run(
-            command, capture_output=True, text=True, encoding="utf-8", errors="replace"
-        )
+    if result.returncode != 0:
+        print("FFmpeg STDOUT:", result.stdout)
+        print("FFmpeg STDERR:", result.stderr)
+        raise Exception(f"FFmpeg failed with return code {result.returncode}")
 
-        if result.returncode != 0:
-            print("FFmpeg STDOUT:", result.stdout)
-            print("FFmpeg STDERR:", result.stderr)
-            raise Exception(f"FFmpeg failed with return code {result.returncode}")
-
-        print(f"Successfully created reel: {reel_name}")
-    finally:
-        os.chdir(original_dir)
+    print(f"Successfully created reel: {reel_name}")
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=5000)
