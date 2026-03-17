@@ -5,7 +5,11 @@ import hashlib
 import os
 import threading
 
-DATABASE = 'users.db'
+import sys
+
+# Use persistent volume path in production (Docker), local file in dev
+_db_dir = '/app/db' if os.path.isdir('/app/db') else '.'
+DATABASE = os.path.join(_db_dir, 'users.db')
 _db_lock = threading.Lock()
 
 def get_db_connection():

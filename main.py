@@ -19,6 +19,13 @@ app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100MB total
 # Use environment variable for secret key in production
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24)
 
+# Initialize database and required directories at startup
+# This must be at module level so it runs under Gunicorn (not just `python main.py`)
+init_db()
+os.makedirs("user_uploads", exist_ok=True)
+os.makedirs("static/reels", exist_ok=True)
+os.makedirs("static/metadata", exist_ok=True)
+
 def check_ffmpeg():
     """Check if FFmpeg is installed"""
     try:
@@ -541,12 +548,4 @@ def create_reel(
         os.chdir(original_dir)
 
 if __name__ == "__main__":
-    # Initialize database
-    init_db()
-    
-    # Create necessary directories
-    os.makedirs("user_uploads", exist_ok=True)
-    os.makedirs("static/reels", exist_ok=True)
-    os.makedirs("static/metadata", exist_ok=True)
-
     app.run(debug=True, host="0.0.0.0", port=5000)

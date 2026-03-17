@@ -13,6 +13,7 @@ services:
     volumes:
       - static_volume:/app/static
       - uploads_volume:/app/user_uploads
+      - db_volume:/app/db
     environment:
       - FLASK_ENV=production
       - FLASK_APP=main.py
@@ -47,4 +48,6 @@ volumes:
   static_volume:
     driver: local
   uploads_volume:
+    driver: local
+  db_volume:
     driver: local
