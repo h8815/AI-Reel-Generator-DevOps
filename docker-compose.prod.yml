@@ -17,13 +17,7 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_APP=main.py
-      # Generate a secure secret key or use environment variable
       - SECRET_KEY=${SECRET_KEY:-change-me-to-secure-random-key}
-      - GUNICORN_WORKERS=4
-      - GUNICORN_THREADS=2
-      - GUNICORN_WORKER_CLASS=sync
-      - GUNICORN_MAX_REQUESTS=1000
-      - GUNICORN_MAX_REQUESTS_JITTER=50
     networks:
       - snapverse-prod-network
     healthcheck:

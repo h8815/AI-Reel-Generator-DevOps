@@ -352,39 +352,84 @@
             return false;
         }
 
-        // Create FormData and append files in the correct order
+        // Build FormData with ordered files
         const formData = new FormData(event.target);
-
-        // Remove any existing file inputs from FormData
-        for (let pair of formData.entries()) {
-            if (pair[0].startsWith('file')) {
-                formData.delete(pair[0]);
-            }
+        for (let pair of [...formData.entries()]) {
+            if (pair[0].startsWith('file')) formData.delete(pair[0]);
         }
-
-        // Add files in the correct order
         selectedFiles.forEach((file, index) => {
             formData.append(`file${index + 1}`, file);
         });
 
-        // Submit the form with AJAX
-        document.getElementById('loadingOverlay').classList.add('active');
+        // Show loading overlay with progress UI
+        const overlay = document.getElementById('loadingOverlay');
+        const loadingText = overlay.querySelector('.loading-text');
+        const loadingSubtext = overlay.querySelector('.loading-subtext');
+        overlay.classList.add('active');
         document.getElementById('submitBtn').disabled = true;
 
-        fetch('/create', {
-            method: 'POST',
-            body: formData
-        })
-            .then(response => response.text())
-            .then(html => {
-                document.open();
-                document.write(html);
-                document.close();
+        let elapsed = 0;
+        const steps = [
+            '📁 Uploading your files…',
+            '🎬 Processing images…',
+            '🎵 Mixing audio…',
+            '✨ Applying filters…',
+            '🔧 Encoding video…',
+            '💾 Finalising reel…',
+        ];
+        let stepIdx = 0;
+        loadingText.textContent = steps[0];
+
+        const timer = setInterval(() => {
+            elapsed++;
+            stepIdx = Math.min(Math.floor(elapsed / 8), steps.length - 1);
+            loadingText.textContent = steps[stepIdx];
+            loadingSubtext.textContent = `⏱ ${elapsed}s elapsed — FFmpeg is working, please wait…`;
+        }, 1000);
+
+        // Phase 1: submit files, get job_id immediately
+        fetch('/create', { method: 'POST', body: formData })
+            .then(res => {
+                if (!res.ok) return res.json().then(d => Promise.reject(d.error || 'Upload failed'));
+                return res.json();
             })
-            .catch(error => {
-                alert('Error creating reel: ' + error.message);
-                document.getElementById('loadingOverlay').classList.remove('active');
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                const jobId = data.job_id;
+
+                // Phase 2: poll /status/<job_id> every 2 seconds
+                const poll = setInterval(() => {
+                    fetch(`/status/${jobId}`)
+                        .then(r => r.json())
+                        .then(job => {
+                            if (job.status === 'done') {
+                                clearInterval(poll);
+                                clearInterval(timer);
+                                // Redirect to gallery on success
+                                window.location.href = '/gallery?new=' + encodeURIComponent(job.reel_name);
+                            } else if (job.status === 'error') {
+                                clearInterval(poll);
+                                clearInterval(timer);
+                                overlay.classList.remove('active');
+                                document.getElementById('submitBtn').disabled = false;
+                                alert('❌ Error creating reel: ' + (job.message || 'Unknown error'));
+                            }
+                            // status === 'pending' → keep polling
+                        })
+                        .catch(err => {
+                            clearInterval(poll);
+                            clearInterval(timer);
+                            overlay.classList.remove('active');
+                            document.getElementById('submitBtn').disabled = false;
+                            alert('❌ Error checking status: ' + err.message);
+                        });
+                }, 2000);
+            })
+            .catch(err => {
+                clearInterval(timer);
+                overlay.classList.remove('active');
                 document.getElementById('submitBtn').disabled = false;
+                alert('❌ Error creating reel: ' + (err.message || err));
             });
 
         return false;
@@ -394,6 +439,15 @@
         const message = document.querySelector('.message');
         if (message) {
             message.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // Show success banner if redirected from gallery with ?new=
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('created')) {
+            const banner = document.createElement('div');
+            banner.className = 'message success';
+            banner.innerHTML = '✅ Reel created successfully! <a href="/gallery" class="gallery-btn">🎬 View Gallery</a>';
+            document.querySelector('.upload-container').prepend(banner);
         }
     });
 </script>

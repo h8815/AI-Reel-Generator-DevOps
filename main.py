@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 import uuid
+import threading
 from werkzeug.utils import secure_filename
 import os
 import subprocess
@@ -35,6 +36,43 @@ os.makedirs("static/metadata", exist_ok=True)
 
 # Initialize database (module-level so it runs under Gunicorn, not just `python main.py`)
 init_db()
+
+# ── In-memory job store ──────────────────────────────────────────────────────
+# Stores reel creation jobs: { job_id: { status, message, reel_name } }
+_jobs = {}
+_jobs_lock = threading.Lock()
+
+def _run_ffmpeg_job(job_id, rec_id, reel_name, text_overlay, aspect_ratio,
+                    filter_effect, user_id, input_files, duration):
+    """Run FFmpeg in a background thread and update the job store when done."""
+    try:
+        with app.app_context():
+            # Build metadata dir
+            metadata_dir = get_user_metadata_folder(user_id)
+            os.makedirs(metadata_dir, exist_ok=True)
+
+            create_reel(rec_id, reel_name, text_overlay, aspect_ratio, filter_effect, user_id)
+
+            metadata = {
+                "name": reel_name,
+                "created_at": datetime.now().isoformat(),
+                "image_count": len(input_files),
+                "duration": duration,
+                "text_overlay": text_overlay,
+                "aspect_ratio": aspect_ratio,
+                "filter_effect": filter_effect,
+            }
+            metadata_path = os.path.join(metadata_dir, f"{reel_name}.json")
+            with open(metadata_path, "w", encoding="utf-8") as f:
+                json.dump(metadata, f, indent=2)
+
+        with _jobs_lock:
+            _jobs[job_id] = {"status": "done", "reel_name": reel_name}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        with _jobs_lock:
+            _jobs[job_id] = {"status": "error", "message": str(e)}
 
 def check_ffmpeg():
     """Check if FFmpeg is installed"""
@@ -251,14 +289,16 @@ def create():
 
         print(f"Total images saved: {len(input_files)}")
         if has_audio and input_files:
-            # Create input.txt for FFmpeg concat
+            # Create input.txt for FFmpeg concat (use absolute paths to be robust)
             input_txt_path = os.path.join(target_folder, "input.txt")
             with open(input_txt_path, "w", encoding="utf-8") as f:
                 for fl in input_files:
-                    f.write(f"file '{fl}'\n")
+                    abs_img = os.path.abspath(os.path.join(target_folder, fl))
+                    f.write(f"file '{abs_img}'\n")
                     f.write(f"duration {duration}\n")
-                # Add the last file again without duration
-                f.write(f"file '{input_files[-1]}'\n")
+                # FFmpeg concat needs the last file repeated without duration
+                abs_last = os.path.abspath(os.path.join(target_folder, input_files[-1]))
+                f.write(f"file '{abs_last}'\n")
 
             print(f"Created input.txt with {len(input_files)} images")
 
@@ -279,60 +319,38 @@ def create():
             if not os.path.exists(metadata_dir):
                 os.makedirs(metadata_dir, exist_ok=True)
 
-            # Create reel
+            # Create reel asynchronously — do NOT block the HTTP request
             if has_required_assets(str(rec_id), user_id):
-                try:
-                    create_reel(
-                        str(rec_id),
-                        reel_name,
-                        text_overlay,
-                        aspect_ratio,
-                        filter_effect,
-                        user_id,
-                    )
+                job_id = str(uuid.uuid4())
+                with _jobs_lock:
+                    _jobs[job_id] = {"status": "pending", "reel_name": reel_name}
 
-                    # Save metadata
-                    metadata = {
-                        "name": reel_name,
-                        "created_at": datetime.now().isoformat(),
-                        "image_count": len(input_files),
-                        "duration": duration,
-                        "text_overlay": text_overlay,
-                        "aspect_ratio": aspect_ratio,
-                        "filter_effect": filter_effect,
-                    }
-                    metadata_path = os.path.join(metadata_dir, f"{reel_name}.json")
-                    with open(metadata_path, "w", encoding="utf-8") as f:
-                        json.dump(metadata, f, indent=2)
-
-                    return render_template(
-                        "create.html",
-                        myid=myid,
-                        success=f"Reel '{reel_name}' created successfully with {len(input_files)} images! Go and watch it in the gallery section.",
-                        show_gallery_link=True,
-                    )
-                except Exception as e:
-                    print(f"Error creating reel: {e}")
-                    import traceback
-
-                    traceback.print_exc()
-                    return render_template(
-                        "create.html",
-                        myid=myid,
-                        error=f"Error creating reel: {str(e)}. Please check the console for details.",
-                    )
-            else:
-                return render_template(
-                    "create.html",
-                    myid=myid,
-                    error="Missing required assets for reel creation.",
+                t = threading.Thread(
+                    target=_run_ffmpeg_job,
+                    args=(job_id, str(rec_id), reel_name, text_overlay,
+                          aspect_ratio, filter_effect, user_id, input_files, duration),
+                    daemon=True,
                 )
+                t.start()
+
+                return jsonify({"job_id": job_id})
+            else:
+                return jsonify({"error": "Missing required assets for reel creation."}), 400
         else:
-            return render_template(
-                "create.html", myid=myid, error="Please provide both audio and images."
-            )
+            return jsonify({"error": "Please provide both audio and images."}), 400
 
     return render_template("create.html", myid=myid)
+
+
+@app.route("/status/<job_id>")
+@login_required
+def job_status(job_id):
+    """Poll endpoint for async reel creation status."""
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if job is None:
+        return jsonify({"status": "not_found"}), 404
+    return jsonify(job)
 
 
 @app.route("/gallery")
@@ -496,8 +514,14 @@ def create_reel(
     else:
         width, height = 1080, 1920
 
-    # Build single filter string (combine all filters)
+    # Build filter chain:
+    # Step 1: Pre-scale giant phone images down to ≤ 2160px on the longer side
+    #         before the expensive main scale. This dramatically speeds up encoding
+    #         of 4K+ photos (e.g. 4320x5984) without visible quality loss.
+    # Step 2: Scale to target resolution with padding
+    pre_scale = "scale=iw*min(2160/iw\\,2160/ih):ih*min(2160/iw\\,2160/ih),setsar=1"
     vf_parts = [
+        pre_scale,
         f"scale={width}:{height}:force_original_aspect_ratio=decrease",
         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black",
     ]
@@ -525,10 +549,14 @@ def create_reel(
         "-i", audio_path,
         "-vf", vf_string,
         "-c:v", "libx264",
+        "-preset", "fast",   # much faster than default 'medium', barely any quality diff
+        "-crf", "23",
         "-c:a", "aac",
+        "-b:a", "128k",
         "-shortest",
         "-r", "30",
         "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",  # makes MP4 streamable immediately
         output_path,
     ]
 
