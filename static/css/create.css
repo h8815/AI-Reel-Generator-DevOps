@@ -190,12 +190,50 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    .upload-section {
+        padding: 1.5rem 0;
+    }
+
     .upload-container {
-        padding: 2rem;
+        padding: 1.5rem;
+        border-radius: 12px;
     }
 
     .upload-title {
-        font-size: 2.2rem;
+        font-size: 1.8rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .upload-instructions {
+        font-size: 0.95rem;
+        margin-bottom: 1.8rem;
+    }
+
+    .drop-zone {
+        padding: 20px;
+        min-height: 160px;
+    }
+
+    .drop-zone-icon {
+        font-size: 48px;
+    }
+
+    .drop-zone-text {
+        font-size: 1.1rem;
+    }
+
+    .customization-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .custom-option {
+        padding: 15px;
+    }
+
+    .section-title {
+        font-size: 1.15rem;
+        margin-top: 20px;
     }
 
     .file-input-group {
@@ -205,10 +243,6 @@
 
     .remove-file-btn {
         align-self: flex-end;
-    }
-
-    .customization-grid {
-        grid-template-columns: 1fr;
     }
 }
 

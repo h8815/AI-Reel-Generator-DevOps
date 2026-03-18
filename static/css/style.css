@@ -200,13 +200,45 @@ footer {
 }
 
 /* Responsive Styles */
+@media (max-width: 991px) {
+    .navbar {
+        padding: 0.8rem 1.2rem;
+    }
+
+    .navbar-collapse {
+        background: rgba(15, 21, 41, 0.98);
+        backdrop-filter: blur(15px);
+        margin-top: 1rem;
+        border-radius: 12px;
+        padding: 1rem;
+        border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .nav-link {
+        margin: 0.5rem 0;
+        padding: 0.8rem 1rem;
+    }
+}
+
 @media (max-width: 768px) {
+    .hero-section {
+        padding: 4rem 0 3rem 0;
+    }
+
     .hero-title {
-        font-size: 2.2rem;
+        font-size: 2.5rem;
+        line-height: 1.1;
     }
 
     .hero-subtitle {
-        font-size: 1.05rem;
+        font-size: 1.1rem;
+        margin-bottom: 2.5rem;
+    }
+
+    .footer-content {
+        flex-direction: column;
+        gap: 1.5rem;
+        text-align: center;
     }
 }
 
