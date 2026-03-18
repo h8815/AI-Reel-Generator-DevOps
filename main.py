@@ -37,14 +37,32 @@ os.makedirs("static/metadata", exist_ok=True)
 # Initialize database (module-level so it runs under Gunicorn, not just `python main.py`)
 init_db()
 
-# ── In-memory job store ──────────────────────────────────────────────────────
-# Stores reel creation jobs: { job_id: { status, message, reel_name } }
-_jobs = {}
-_jobs_lock = threading.Lock()
+# ── Persistent job store ──────────────────────────────────────────────────
+# Stores reel creation jobs in files so multiple Gunicorn workers can see them.
+JOBS_DIR = "db/jobs"
+os.makedirs(JOBS_DIR, exist_ok=True)
+
+def _get_job_path(job_id):
+    return os.path.join(JOBS_DIR, f"{job_id}.json")
+
+def _set_job_status(job_id, status, reel_name=None, message=None):
+    data = {"status": status}
+    if reel_name: data["reel_name"] = reel_name
+    if message: data["message"] = message
+    
+    with open(_get_job_path(job_id), "w", encoding="utf-8") as f:
+        json.dump(data, f)
+
+def _get_job_status(job_id):
+    path = _get_job_path(job_id)
+    if not os.path.exists(path):
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 def _run_ffmpeg_job(job_id, rec_id, reel_name, text_overlay, aspect_ratio,
                     filter_effect, user_id, input_files, duration):
-    """Run FFmpeg in a background thread and update the job store when done."""
+    """Run FFmpeg in a background thread and update the persistent job store."""
     try:
         with app.app_context():
             # Build metadata dir
@@ -66,13 +84,11 @@ def _run_ffmpeg_job(job_id, rec_id, reel_name, text_overlay, aspect_ratio,
             with open(metadata_path, "w", encoding="utf-8") as f:
                 json.dump(metadata, f, indent=2)
 
-        with _jobs_lock:
-            _jobs[job_id] = {"status": "done", "reel_name": reel_name}
+        _set_job_status(job_id, "done", reel_name=reel_name)
     except Exception as e:
         import traceback
         traceback.print_exc()
-        with _jobs_lock:
-            _jobs[job_id] = {"status": "error", "message": str(e)}
+        _set_job_status(job_id, "error", message=str(e))
 
 def check_ffmpeg():
     """Check if FFmpeg is installed"""
@@ -322,8 +338,7 @@ def create():
             # Create reel asynchronously — do NOT block the HTTP request
             if has_required_assets(str(rec_id), user_id):
                 job_id = str(uuid.uuid4())
-                with _jobs_lock:
-                    _jobs[job_id] = {"status": "pending", "reel_name": reel_name}
+                _set_job_status(job_id, "pending", reel_name=reel_name)
 
                 t = threading.Thread(
                     target=_run_ffmpeg_job,
@@ -346,8 +361,7 @@ def create():
 @login_required
 def job_status(job_id):
     """Poll endpoint for async reel creation status."""
-    with _jobs_lock:
-        job = _jobs.get(job_id)
+    job = _get_job_status(job_id)
     if job is None:
         return jsonify({"status": "not_found"}), 404
     return jsonify(job)
@@ -543,19 +557,21 @@ def create_reel(
     command = [
         "ffmpeg",
         "-y",
+        "-threads", "1",      # Limit to 1 thread to save RAM on 1GB VPS
         "-f", "concat",
         "-safe", "0",
         "-i", input_txt_path,
         "-i", audio_path,
         "-vf", vf_string,
         "-c:v", "libx264",
-        "-preset", "fast",   # much faster than default 'medium', barely any quality diff
+        "-preset", "superfast", # Faster preset = less memory-intensive lookahead
         "-crf", "23",
         "-c:a", "aac",
         "-b:a", "128k",
         "-shortest",
         "-r", "30",
         "-pix_fmt", "yuv420p",
+        "-max_muxing_queue_size", "1024", # Prevent queue overflow issues
         "-movflags", "+faststart",  # makes MP4 streamable immediately
         output_path,
     ]
