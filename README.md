@@ -68,6 +68,12 @@
 - View, download, or delete reels  
 - Metadata tracking (date, file size, settings)
 
+#### 🎥 Bairan Effect (New)
+- Upload a source video and optional slideshow images
+- Automatic freeze-frame extraction and layered composition
+- AI background removal using fal.ai (Bria)
+- Output saved directly into your existing gallery
+
 ---
 
 ## 🎬 Video Specifications
@@ -139,6 +145,11 @@ App runs at: **http://localhost:5000**
 # Start app with SonarQube & Trivy
 docker-compose up -d
 ```
+
+### Bairan Effect with Docker Compose
+- `snapverse-ai` calls the internal `bairaneffect` service at `http://bairaneffect:3001/process`
+- Set `FAL_KEY` in your `.env` file (or use the default in `docker-compose.yml`)
+- Access the feature from the app navbar: `Bairan Effect`
 
 ### Kubernetes Deployment
 ```bash

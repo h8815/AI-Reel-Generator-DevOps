@@ -30,6 +30,13 @@ Thumbs.db
 # Logs
 *.log
 
+# Environment files
+.env
+.env.*
+!.env.example
+bairaneffect/.env
+bairaneffect/.env.*
+
 # Testing
 .pytest_cache/
 .coverage

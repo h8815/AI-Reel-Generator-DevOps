@@ -18,6 +18,10 @@ services:
       - FLASK_ENV=production
       - FLASK_APP=main.py
       - SECRET_KEY=${SECRET_KEY:-change-me-to-secure-random-key}
+      - BAIRAN_EFFECT_API_URL=http://bairaneffect:3001/process
+      - BAIRAN_EFFECT_TIMEOUT=${BAIRAN_EFFECT_TIMEOUT:-1800}
+    depends_on:
+      - bairaneffect
     networks:
       - snapverse-prod-network
     healthcheck:
@@ -33,6 +37,41 @@ services:
         max-file: "3"
     labels:
       - "com.example.description=Snapverse AI Production App"
+
+  # Bairan Effect processing service
+  bairaneffect:
+    build:
+      context: ./bairaneffect
+      dockerfile: Dockerfile
+    container_name: bairaneffect-prod
+    restart: always
+    environment:
+      - PORT=3001
+      - GENERATED_DIR=/app/user_uploads/bairaneffect_output
+      - FAL_KEY=${FAL_KEY}
+    volumes:
+      - uploads_volume:/app/user_uploads
+    networks:
+      - snapverse-prod-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3001/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "com.example.description=Bairan Effect Processing Service"
 
 networks:
   snapverse-prod-network:

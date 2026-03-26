@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # Main Application
@@ -15,6 +15,26 @@ services:
     environment:
       - FLASK_ENV=development
       - FLASK_DEBUG=1
+      - BAIRAN_EFFECT_API_URL=http://bairaneffect:3001/process
+      - BAIRAN_EFFECT_TIMEOUT=1800
+    depends_on:
+      - bairaneffect
+    networks:
+      - snapverse-network
+    restart: unless-stopped
+
+  # Bairan Effect processing service
+  bairaneffect:
+    build:
+      context: ./bairaneffect
+      dockerfile: Dockerfile
+    container_name: bairaneffect
+    environment:
+      - PORT=3001
+      - GENERATED_DIR=/app/user_uploads/bairaneffect_output
+      - FAL_KEY=${FAL_KEY:-93d0b093-2310-4c07-bc68-0ffaa5f5ddeb:096081c250101606a25edb2132ba55dc}
+    volumes:
+      - ./user_uploads:/app/user_uploads
     networks:
       - snapverse-network
     restart: unless-stopped

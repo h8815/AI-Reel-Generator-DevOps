@@ -28,6 +28,12 @@ def test_gallery_requires_login(client):
     assert response.status_code == 302
     assert '/login' in response.headers['Location']
 
+def test_bairan_effect_requires_login(client):
+    """Test that the Bairan Effect page requires authentication (redirects to login)."""
+    response = client.get('/bairan-effect', follow_redirects=False)
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+
 def test_create_reel_no_session_redirects(client):
     """Test that posting to /create without a session redirects to login."""
     response = client.post('/create', data={}, follow_redirects=False)

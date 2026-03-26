@@ -5,17 +5,45 @@ from werkzeug.utils import secure_filename
 import os
 import subprocess
 import json
+import shutil
+import zipfile
 from datetime import datetime
+import requests
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from auth import init_db, create_user, verify_user, login_required, get_user_folder, get_user_reels_folder, get_user_metadata_folder
 
 UPLOAD_FOLDER = "user_uploads"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
+ALLOWED_VIDEO_EXTENSIONS = {"mp4", "mov", "avi"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB for images
 MAX_AUDIO_SIZE = 50 * 1024 * 1024  # 50MB for audio
+MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB for source video
+MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", str(200 * 1024 * 1024)))
+BAIRAN_EFFECT_API_URL = os.environ.get("BAIRAN_EFFECT_API_URL", "http://bairaneffect:3001/process")
+BAIRAN_EFFECT_TIMEOUT = int(os.environ.get("BAIRAN_EFFECT_TIMEOUT", "1200"))
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100MB total
+app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
+
+# Initialize Rate Limiter
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["1000 per day", "100 per hour"],
+    storage_uri="memory://",
+)
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+    msg = f"Rate limit exceeded: {e.description}"
+    if is_ajax:
+        return jsonify({"error": msg}), 429
+    flash(msg, "error")
+    # Redirect to referer if possible, else home
+    return redirect(request.referrer or url_for('home'))
 
 import logging
 
@@ -33,6 +61,7 @@ app.secret_key = _secret_key or os.urandom(24)
 os.makedirs("user_uploads", exist_ok=True)
 os.makedirs("static/reels", exist_ok=True)
 os.makedirs("static/metadata", exist_ok=True)
+os.makedirs("user_uploads/bairaneffect_output", exist_ok=True)
 
 # Initialize database (module-level so it runs under Gunicorn, not just `python main.py`)
 init_db()
@@ -90,6 +119,75 @@ def _run_ffmpeg_job(job_id, rec_id, reel_name, text_overlay, aspect_ratio,
         traceback.print_exc()
         _set_job_status(job_id, "error", message=str(e))
 
+def _run_bairan_job(job_id, user_id, reel_name, video_path, video_filename, image_paths, zip_path):
+    """Run Bairan Effect service in a background thread and update the persistent job store."""
+    try:
+        with app.app_context():
+            payload = {
+                "videoPath": os.path.abspath(video_path),
+                "isUrl": False,
+                "userId": str(user_id),
+            }
+            if zip_path:
+                payload["zipPath"] = os.path.abspath(zip_path)
+                payload["zipUrl"] = False
+
+            try:
+                response = requests.post(
+                    BAIRAN_EFFECT_API_URL,
+                    json=payload,
+                    timeout=BAIRAN_EFFECT_TIMEOUT,
+                )
+                
+                # Gracefully parse 4xx and 5xx errors from the Node service
+                if response.status_code >= 400:
+                    try:
+                        err_data = response.json()
+                        err_msg = err_data.get("error", "Processing failed")
+                    except Exception:
+                        err_msg = f"HTTP {response.status_code}"
+                    _set_job_status(job_id, "error", message=f"fal.ai API Error or Service Error: {err_msg}")
+                    return
+                
+                result = response.json()
+            except requests.RequestException as exc:
+                _set_job_status(job_id, "error", message=f"Bairan Effect connection error: {exc}")
+                return
+
+            if not result.get("success"):
+                _set_job_status(job_id, "error", message=result.get("error", "Bairan Effect processing failed."))
+                return
+
+            output_path = result.get("outputPath")
+            if not output_path or not os.path.exists(output_path):
+                _set_job_status(job_id, "error", message="Bairan Effect output file not found after processing.")
+                return
+
+            reels_dir = get_user_reels_folder(user_id)
+            os.makedirs(reels_dir, exist_ok=True)
+            final_output = os.path.join(reels_dir, f"{reel_name}.mp4")
+            shutil.copyfile(output_path, final_output)
+
+            metadata_dir = get_user_metadata_folder(user_id)
+            os.makedirs(metadata_dir, exist_ok=True)
+            metadata = {
+                "name": reel_name,
+                "created_at": datetime.now().isoformat(),
+                "effect": "bairan",
+                "source_video": video_filename,
+                "image_count": len(image_paths),
+                "pipeline": "freeze-frame + background removal + layered composition",
+            }
+            metadata_path = os.path.join(metadata_dir, f"{reel_name}.json")
+            with open(metadata_path, "w", encoding="utf-8") as f:
+                json.dump(metadata, f, indent=2)
+
+        _set_job_status(job_id, "done", reel_name=reel_name)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        _set_job_status(job_id, "error", message=str(e))
+
 def check_ffmpeg():
     """Check if FFmpeg is installed"""
     try:
@@ -97,6 +195,17 @@ def check_ffmpeg():
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
+
+
+def _is_allowed_video(filename):
+    ext = os.path.splitext(filename)[1].lower().lstrip(".")
+    return ext in ALLOWED_VIDEO_EXTENSIONS
+
+
+def _zip_uploaded_images(image_paths, zip_path):
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for image_path in image_paths:
+            zipf.write(image_path, arcname=os.path.basename(image_path))
 
 
 @app.route("/")
@@ -166,6 +275,7 @@ def logout():
 
 @app.route("/create", methods=["GET", "POST"])
 @login_required
+@limiter.limit("20 per day")
 def create():
     myid = uuid.uuid1()
     if request.method == "POST":
@@ -365,6 +475,99 @@ def job_status(job_id):
     if job is None:
         return jsonify({"status": "not_found"}), 404
     return jsonify(job)
+
+
+@app.route("/bairan-effect", methods=["GET", "POST"])
+@login_required
+@limiter.limit("5 per day")
+def bairan_effect():
+    myid = uuid.uuid1()
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+
+    if request.method == "POST":
+        user_id = session.get("user_id")
+        reel_name = secure_filename(request.form.get("reel_name", "").strip())
+
+        def _error_response(msg):
+            if is_ajax:
+                return jsonify({"error": msg}), 400
+            return render_template("bairan_effect.html", myid=myid, error=msg)
+
+        if not reel_name:
+            return _error_response("Please provide a valid reel name.")
+
+        video_file = request.files.get("source_video")
+        if not video_file or not video_file.filename:
+            return _error_response("Please upload a source video (MP4, MOV, AVI).")
+
+        video_file.seek(0, os.SEEK_END)
+        video_size = video_file.tell()
+        video_file.seek(0)
+        if video_size > MAX_VIDEO_SIZE:
+            return _error_response(f"Source video is too large. Maximum size is {MAX_VIDEO_SIZE // (1024*1024)}MB.")
+
+        if not _is_allowed_video(video_file.filename):
+            return _error_response("Invalid video format. Use MP4, MOV, or AVI.")
+
+        rec_id = request.form.get("uuid") or str(uuid.uuid4())
+        target_folder = os.path.join(get_user_folder(user_id), str(rec_id), "bairan")
+        os.makedirs(target_folder, exist_ok=True)
+
+        video_filename = secure_filename(video_file.filename)
+        video_path = os.path.join(target_folder, video_filename)
+        video_file.save(video_path)
+
+        image_paths = []
+        files_from_list = request.files.getlist("image_files")
+        files_from_indexed = [
+            request.files.get(key)
+            for key in sorted([key for key in request.files.keys() if key.startswith("file")])
+        ]
+        image_files = [f for f in (files_from_list + files_from_indexed) if f is not None]
+
+        for index, file in enumerate(image_files):
+            if not file or not file.filename:
+                continue
+
+            filename = secure_filename(file.filename)
+            ext = os.path.splitext(filename)[1].lower().lstrip(".")
+            if ext not in ALLOWED_EXTENSIONS:
+                continue
+
+            file.seek(0, os.SEEK_END)
+            file_size = file.tell()
+            file.seek(0)
+            if file_size > MAX_FILE_SIZE:
+                continue
+
+            saved_name = f"image_{index:03d}{os.path.splitext(filename)[1]}"
+            image_path = os.path.join(target_folder, saved_name)
+            file.save(image_path)
+            image_paths.append(image_path)
+
+        zip_path = None
+        if image_paths:
+            zip_path = os.path.join(target_folder, "middle-images.zip")
+            _zip_uploaded_images(image_paths, zip_path)
+
+        job_id = str(uuid.uuid4())
+        _set_job_status(job_id, "pending", reel_name=reel_name)
+
+        t = threading.Thread(
+            target=_run_bairan_job,
+            args=(job_id, user_id, reel_name, video_path, video_filename, image_paths, zip_path),
+            daemon=True,
+        )
+        t.start()
+
+        if is_ajax:
+            return jsonify({"job_id": job_id})
+        
+        # Fallback if somehow not using AJAX/fetch (wait for completion page?)
+        flash("Bairan Effect reel creation started in the background. Check your gallery in a few minutes!", "success")
+        return redirect(url_for("gallery"))
+
+    return render_template("bairan_effect.html", myid=myid)
 
 
 @app.route("/gallery")

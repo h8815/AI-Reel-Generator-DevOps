@@ -1,58 +1,59 @@
 {% extends "base.html" %}
 
-{% block title %}Create Reel - AI Reel Generator{% endblock %}
+{% block title %}Bairan Effect - AI Reel Generator{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/create.css') }}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link
-    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
-    rel="stylesheet">
 {% endblock %}
 
 {% block content %}
 <div class="loading-overlay" id="loadingOverlay">
     <div class="bairan-pulse-loader"></div>
-    <div class="loading-text">✨ Creating Your Masterpiece...</div>
-    <div class="loading-subtext">Applying your customizations. This may take a moment.</div>
+    <div class="loading-text">Applying Bairan Effect...</div>
+    <div class="loading-subtext">Running freeze-frame extraction, AI background removal, and final composition.</div>
 </div>
 
 <section class="upload-section">
     <div class="container">
         <div class="upload-container">
-            <h1 class="upload-title">Create Your Reel</h1>
-            <p class="upload-instructions">Drag & drop multiple images or click to browse. Reorder by dragging!</p>
-
-
-
-            {% if success %}
-            <div class="message success">
-                ✅ {{ success }}
-                <br>
-                <a href="/gallery" class="cta-btn cta-btn-secondary">🎬 View Gallery</a>
-            </div>
-            {% endif %}
+            <h1 class="upload-title">Bairan Effect Studio</h1>
+            <p class="upload-instructions">Upload one source video and optional middle images for a cinematic layered
+                reel.</p>
 
             {% if error %}
-            <div class="message error">
-                ⚠️ {{ error }}
-            </div>
+            <div class="message error">{{ error }}</div>
             {% endif %}
 
-            <form action="/create" enctype="multipart/form-data" method="post" id="myDropzone"
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="message {{ 'success' if category == 'success' else 'error' }}">{{ message }}</div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+
+
+            <form action="{{ url_for('bairan_effect') }}" enctype="multipart/form-data" method="post" id="myDropzone"
                 onsubmit="return validateAndSubmit(event)">
-                <input name="uuid" type="hidden" value="{{myid}}">
+                <input name="uuid" type="hidden" value="{{ myid }}">
 
                 <div style="margin-bottom: 25px;">
                     <label class="reel-name-label" for="reelName">🏷️ Reel Name *</label>
                     <input type="text" id="reelName" name="reel_name" class="reel-name-input"
-                        placeholder="e.g., Summer_Vacation_2024" required maxlength="50" pattern="[A-Za-z0-9_\-\s]+"
+                        placeholder="e.g., Action_Freeze_Intro" required maxlength="50" pattern="[A-Za-z0-9_\-\s]+"
                         title="Only letters, numbers, spaces, underscores, and hyphens allowed">
                     <span class="info-badge">Use descriptive names for easy identification</span>
                 </div>
 
-                <h3 class="section-title">📸 Upload Images</h3>
+                <h3 class="section-title">🎬 Source Video</h3>
+                <div class="text-input-container">
+                    <input class="file-input" id="sourceVideo" name="source_video" type="file"
+                        accept=".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo" required>
+                    <div class="file-size-info">Accepted formats: MP4, MOV, AVI (max 100MB)</div>
+                </div>
+
+                <h3 class="section-title">📸 Middle Slideshow Images (Optional)</h3>
                 <div class="drop-zone" id="dropZone">
                     <div class="drop-zone-icon">🖼️</div>
                     <div class="drop-zone-text">Drag & Drop Images Here</div>
@@ -75,92 +76,8 @@
                     </span>
                 </div>
 
-                <h3 class="section-title">🎵 Upload Audio</h3>
-                <div class="text-input-container">
-                    <input class="file-input" id="audioInput" name="audio" type="file" accept=".mp3,audio/mpeg"
-                        required />
-                    <div class="file-size-info">Max 50MB • MP3 format only</div>
-                </div>
-
-                <h3 class="section-title">🎨 Customization Options</h3>
-                <div class="customization-grid">
-                    <div class="custom-option">
-                        <div class="option-icon">⏱️</div>
-                        <label class="custom-label" for="imageDuration">Image Duration</label>
-                        <input type="number" id="imageDuration" name="image_duration" class="custom-input" value="1"
-                            min="0.5" max="10" step="0.5" placeholder="Seconds per image">
-                        <div class="file-size-info">0.5 to 10 seconds per image</div>
-                    </div>
-
-                    <div class="custom-option">
-                        <div class="option-icon">📐</div>
-                        <label class="custom-label" for="aspectRatio">Aspect Ratio</label>
-                        <select id="aspectRatio" name="aspect_ratio" class="custom-select"
-                            style="background-color: rgb(17, 29, 51);">
-                            <option value="9:16">9:16 (Instagram Reels)</option>
-                            <option value="16:9">16:9 (YouTube)</option>
-                            <option value="1:1">1:1 (Square)</option>
-                        </select>
-                        <div class="file-size-info">Choose your platform</div>
-                    </div>
-
-                    <div class="custom-option">
-                        <div class="option-icon">✨</div>
-                        <label class="custom-label" for="filterEffect">Video Filter</label>
-                        <select id="filterEffect" name="filter_effect" class="custom-select"
-                            style="background-color: rgb(17, 29, 51);">
-                            <optgroup label="🎨 Basic Filters">
-                                <option value="none">None (Default)</option>
-                                <option value="grayscale">Grayscale / Black & White</option>
-                                <option value="sepia">Sepia / Vintage Brown</option>
-                            </optgroup>
-
-                            <optgroup label="🌈 Color Adjustments">
-                                <option value="vibrant">Vibrant / Saturated Colors</option>
-                                <option value="warm">Warm Tone / Orange Tint</option>
-                                <option value="cool">Cool Tone / Blue Tint</option>
-                                <option value="vintage">Vintage / Retro</option>
-                            </optgroup>
-
-                            <optgroup label="🎬 Dramatic Filters">
-                                <option value="noir">Film Noir / High Contrast B&W</option>
-                                <option value="dramatic">Dramatic / Dark Mood</option>
-                                <option value="cinematic">Cinematic / Movie Style</option>
-                            </optgroup>
-
-                            <optgroup label="☀️ Bright & Light">
-                                <option value="bright">Bright / Enhanced</option>
-                                <option value="soft">Soft / Dreamy</option>
-                                <option value="dream">Dream / Ethereal</option>
-                            </optgroup>
-
-                            <optgroup label="📱 Instagram Style">
-                                <option value="nashville">Nashville / Warm Pink</option>
-                                <option value="lofi">Lo-Fi / High Contrast</option>
-                                <option value="xpro">X-Pro II / Cross Process</option>
-                            </optgroup>
-
-                            <optgroup label="🎭 Special Effects">
-                                <option value="fade">Faded / Washed Out</option>
-                                <option value="sharp">Sharp / Enhanced Details</option>
-                                <option value="vignette">Vignette / Dark Edges</option>
-                                <option value="blur_edges">Blur Edges / Focus Center</option>
-                            </optgroup>
-                        </select>
-                        <div class="file-size-info">Apply a professional visual filter to your reels</div>
-                    </div>
-                </div>
-
-                <div class="custom-option" style="margin-top: 20px;">
-                    <div class="option-icon">💬</div>
-                    <label class="custom-label" for="textOverlay">Text Overlay (Optional)</label>
-                    <input type="text" id="textOverlay" name="text_overlay" class="custom-input"
-                        placeholder="Add text to appear on your reel" maxlength="100">
-                    <div class="file-size-info">Add a caption or title (max 100 characters)</div>
-                </div>
-
-                <button type="submit" class="submit-btn" id="submitBtn">
-                    🚀 Create Amazing Reel
+                <button type="submit" class="submit-btn" id="submitBtn" style="margin-top: 20px;">
+                    🚀 Create Bairan Effect Reel
                 </button>
             </form>
         </div>
@@ -218,12 +135,10 @@
 
     function handleFiles(files) {
         const newFiles = [...files].filter(file => {
-            // Check if file is image
             if (!file.type.match('image/jpeg') && !file.type.match('image/png') && !file.type.match('image/jpg')) {
                 alert(`${file.name} is not a valid image file (JPG, JPEG, PNG only)`);
                 return false;
             }
-            // Check file size (10MB)
             if (file.size > 10 * 1024 * 1024) {
                 alert(`${file.name} is too large. Maximum size is 10MB`);
                 return false;
@@ -266,7 +181,6 @@
                     </div>
                 `;
 
-                // Add drag events for reordering
                 previewDiv.addEventListener('dragstart', handleDragStart);
                 previewDiv.addEventListener('dragend', handleDragEnd);
                 previewDiv.addEventListener('dragover', handleDragOver);
@@ -284,7 +198,6 @@
         updateImagePreviews();
     }
 
-    // Drag and drop for reordering
     function handleDragStart(e) {
         draggedElement = this;
         this.classList.add('dragging');
@@ -305,7 +218,6 @@
         return false;
     }
 
-    // Reorder for reordering UI logic
     function handleDrop(e) {
         if (e.stopPropagation) {
             e.stopPropagation();
@@ -315,7 +227,6 @@
             const draggedIndex = parseInt(draggedElement.dataset.index);
             const targetIndex = parseInt(this.dataset.index);
 
-            // Reorder the files array
             const [removed] = selectedFiles.splice(draggedIndex, 1);
             selectedFiles.splice(targetIndex, 0, removed);
 
@@ -325,10 +236,6 @@
         return false;
     }
 
-    /**
-     * Helper to compress/resize images client-side before upload.
-     * Reduces 15MB phone photos to ~500KB, preventing timeouts on mobile.
-     */
     async function compressImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -359,7 +266,6 @@
                     ctx.drawImage(img, 0, 0, width, height);
 
                     canvas.toBlob((blob) => {
-                        // Create a new file from the blob, keeping the original name
                         const compressedFile = new File([blob], file.name, {
                             type: 'image/jpeg',
                             lastModified: Date.now()
@@ -372,27 +278,25 @@
     }
 
     async function validateAndSubmit(event) {
-        event.preventDefault(); // Stop form submission
+        event.preventDefault();
         const reelName = document.getElementById('reelName').value.trim();
-        const audioInput = document.getElementById('audioInput').files[0];
-        const imageDuration = parseFloat(document.getElementById('imageDuration').value);
+        const videoInput = document.getElementById('sourceVideo').files[0];
 
         if (!reelName) {
             alert('Please enter a name for your reel');
             return false;
         }
 
-        if (!audioInput) {
-            alert('Please select an audio file');
+        if (!videoInput) {
+            alert('Please select a source video');
             return false;
         }
 
-        if (audioInput.size > 50 * 1024 * 1024) {
-            alert('Audio file is too large. Maximum size is 50MB.');
+        if (videoInput.size > 100 * 1024 * 1024) {
+            alert('Video file is too large. Maximum size is 100MB.');
             return false;
         }
 
-        // Show loading overlay with progress UI
         const overlay = document.getElementById('loadingOverlay');
         const loadingText = overlay.querySelector('.loading-text');
         const loadingSubtext = overlay.querySelector('.loading-subtext');
@@ -402,14 +306,12 @@
         loadingText.textContent = '✨ Optimizing images for upload...';
         loadingSubtext.textContent = 'Resizing high-res photos to make it fast! Please wait...';
 
-        // Compress images sequentially before upload
         const compressedFiles = [];
         for (const file of selectedFiles) {
             const compressed = await compressImage(file);
             compressedFiles.push(compressed);
         }
 
-        // Build FormData with compressed files
         const formData = new FormData(event.target);
         for (let pair of [...formData.entries()]) {
             if (pair[0].startsWith('file')) formData.delete(pair[0]);
@@ -420,25 +322,30 @@
 
         let elapsed = 0;
         const steps = [
-            '📁 Uploading optimized files…',
-            '🎬 Processing images…',
-            '🎵 Mixing audio…',
-            '✨ Applying filters…',
-            '🔧 Encoding video…',
-            '💾 Finalising reel…',
+            '🖌️ Layering neon elements…',
+            '🎬 Running Bairan Engine…',
+            '🎵 Syncing to audio track…',
+            '✨ Rendering final cinematic reel…',
+            '🔧 Composing final cinematic reel…',
+            '💾 Finalising…',
         ];
         let stepIdx = 0;
         loadingText.textContent = steps[0];
 
         const timer = setInterval(() => {
             elapsed++;
-            stepIdx = Math.min(Math.floor(elapsed / 8), steps.length - 1);
+            stepIdx = Math.min(Math.floor(elapsed / 10), steps.length - 1);
             loadingText.textContent = steps[stepIdx];
-            loadingSubtext.textContent = `⏱ ${elapsed}s elapsed — FFmpeg is working, please wait…`;
+            loadingSubtext.textContent = `⏱ ${elapsed}s elapsed — Backend is working, please wait…`;
         }, 1000);
 
-        // Phase 1: submit files, get job_id immediately
-        fetch('/create', { method: 'POST', body: formData })
+        fetch('/bairan-effect', { 
+            method: 'POST', 
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
             .then(res => {
                 if (!res.ok) return res.json().then(d => Promise.reject(d.error || 'Upload failed'));
                 return res.json();
@@ -447,7 +354,6 @@
                 if (data.error) throw new Error(data.error);
                 const jobId = data.job_id;
 
-                // Phase 2: poll /status/<job_id> every 2 seconds
                 const poll = setInterval(() => {
                     fetch(`/status/${jobId}`)
                         .then(r => r.json())
@@ -455,7 +361,6 @@
                             if (job.status === 'done') {
                                 clearInterval(poll);
                                 clearInterval(timer);
-                                // Redirect to gallery on success
                                 window.location.href = '/gallery?new=' + encodeURIComponent(job.reel_name);
                             } else if (job.status === 'error') {
                                 clearInterval(poll);
@@ -464,7 +369,6 @@
                                 document.getElementById('submitBtn').disabled = false;
                                 alert('❌ Error creating reel: ' + (job.message || 'Unknown error'));
                             }
-                            // status === 'pending' → keep polling
                         })
                         .catch(err => {
                             clearInterval(poll);
@@ -484,21 +388,5 @@
 
         return false;
     }
-
-    window.addEventListener('DOMContentLoaded', function () {
-        const message = document.querySelector('.message');
-        if (message) {
-            message.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-
-        // Show success banner if redirected from gallery with ?new=
-        const params = new URLSearchParams(window.location.search);
-        if (params.has('created')) {
-            const banner = document.createElement('div');
-            banner.className = 'message success';
-            banner.innerHTML = '✅ Reel created successfully! <a href="/gallery" class="cta-btn cta-btn-secondary">🎬 View Gallery</a>';
-            document.querySelector('.upload-container').prepend(banner);
-        }
-    });
 </script>
 {% endblock %}
